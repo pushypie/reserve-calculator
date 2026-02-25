@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reserve Impact Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #171b26;
+    --surface2: #1e2333;
+    --border: #2a3045;
+    --accent: #4ade80;
+    --accent3: #f59e0b;
+    --danger: #f87171;
+    --text: #e8eaf0;
+    --muted: #6b7a99;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(74,222,128,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(74,222,128,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 24px 0;
+  }
+
+  /* ── Mode bar ── */
+  .mode-bar {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 12px 24px 0;
+  }
+
+  .mode-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .mode-badge.editor-mode {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(74,222,128,0.08);
+  }
+
+  .mode-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .mode-btn:hover { color: var(--text); border-color: #3a4560; }
+
+  /* ── Password modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+    width: 340px;
+    text-align: center;
+  }
+
+  .modal h3 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.4rem;
+    margin-bottom: 8px;
+  }
+
+  .modal p {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  .modal input[type="password"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    padding: 10px 14px;
+    outline: none;
+    margin-bottom: 12px;
+    text-align: center;
+    letter-spacing: 0.1em;
+  }
+
+  .modal input[type="password"]:focus { border-color: var(--accent); }
+
+  .modal-error {
+    font-size: 12px;
+    color: var(--danger);
+    margin-bottom: 12px;
+    min-height: 16px;
+  }
+
+  .modal-btns { display: flex; gap: 10px; }
+
+  .modal-submit {
+    flex: 1;
+    background: var(--accent);
+    color: #0a1a0f;
+    border: none;
+    border-radius: 8px;
+    padding: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .modal-submit:hover { opacity: 0.85; }
+
+  .modal-cancel {
+    flex: 1;
+    background: none;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .modal-cancel:hover { color: var(--text); }
+
+  /* ── Save status ── */
+  .save-status {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    transition: color 0.3s;
+  }
+
+  .save-status.saving { color: var(--accent3); }
+  .save-status.saved  { color: var(--accent); }
+  .save-status.error  { color: var(--danger); }
+
+  /* ── Viewer readonly notice ── */
+  .readonly-notice {
+    background: rgba(96,165,250,0.07);
+    border: 1px solid rgba(96,165,250,0.25);
+    border-radius: 10px;
+    padding: 10px 16px;
+    margin-bottom: 28px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: #60a5fa;
+    letter-spacing: 0.05em;
+    display: none;
+  }
+
+  /* ── Header ── */
+  header { margin-bottom: 32px; }
+
+  .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    line-height: 1.1;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+
+  h1 em { font-style: italic; color: var(--accent); }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 560px;
+    line-height: 1.6;
+  }
+
+  /* ── Reserves banner ── */
+  .reserves-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent3);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 40px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+
+  .reserves-banner label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .reserves-input-group { display: flex; align-items: center; gap: 8px; }
+
+  .dollar-prefix {
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    color: var(--accent3);
+  }
+
+  .reserves-display {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--accent3);
+  }
+
+  input[type="number"], input[type="text"] {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 160px;
+  }
+
+  input[type="number"]:focus, input[type="text"]:focus { border-color: var(--accent); }
+
+  textarea {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+    resize: vertical;
+    min-height: 72px;
+  }
+
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+
+  /* readonly inputs */
+  input[readonly], textarea[readonly] {
+    opacity: 0.7;
+    cursor: default;
+  }
+
+  /* ── Section heading ── */
+  .section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .section-heading h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.4rem;
+    color: var(--text);
+  }
+
+  .add-btn {
+    background: var(--accent);
+    color: #0a1a0f;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    letter-spacing: 0.02em;
+  }
+
+  .add-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .add-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+  /* ── Opportunity cards ── */
+  .opportunities {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  .opp-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: border-color 0.2s, opacity 0.25s;
+  }
+
+  .opp-card:hover { border-color: #3a4560; }
+  .opp-card.excluded { opacity: 0.45; }
+  .opp-card.excluded .opp-color-dot { background: var(--muted) !important; }
+
+  .opp-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    user-select: none;
+  }
+
+  .opp-color-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+
+  .opp-name-input {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    outline: none;
+    flex: 1;
+    cursor: text;
+    min-width: 0;
+  }
+
+  .opp-name-input::placeholder { color: var(--muted); }
+  .opp-name-input[readonly] { cursor: default; }
+
+  .include-toggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--accent);
+    background: rgba(74,222,128,0.08);
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .include-toggle.excluded {
+    border-color: var(--muted);
+    background: transparent;
+    color: var(--muted);
+  }
+
+  .include-toggle:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  .include-toggle .pill-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    transition: background 0.2s;
+  }
+
+  .include-toggle.excluded .pill-dot { background: var(--muted); }
+
+  .opp-expand-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: none;
+    color: var(--muted);
+    transition: color 0.2s;
+    flex-shrink: 0;
+  }
+
+  .opp-expand-btn:hover { color: var(--text); }
+
+  .opp-delete {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: color 0.2s;
+    flex-shrink: 0;
+  }
+
+  .opp-delete:hover { color: var(--danger); }
+  .opp-delete:disabled { opacity: 0.2; cursor: default; }
+
+  .opp-body {
+    border-top: 1px solid var(--border);
+    padding: 20px;
+    display: none;
+  }
+
+  .opp-body.open { display: block; }
+
+  .description-group { margin-bottom: 18px; }
+
+  .description-group label,
+  .field-group label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .fields-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .field-group .hint {
+    font-size: 11px;
+    color: #4a5568;
+    margin-top: 4px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .field-input-wrap { display: flex; align-items: center; gap: 6px; }
+  .field-input-wrap input { width: 100%; }
+  .field-input-wrap .prefix {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  /* ── Impact row ── */
+  .impact-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-top: 4px;
+  }
+
+  .impact-cell { text-align: center; }
+
+  .impact-cell .ic-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .impact-cell .ic-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  .impact-cell .ic-value.excluded-val {
+    color: var(--muted);
+    text-decoration: line-through;
+  }
+
+  /* ── Summary ── */
+  .summary-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px;
+  }
+
+  .summary-section h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.5rem;
+    margin-bottom: 24px;
+  }
+
+  .timeline-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .timeline-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 16px;
+    text-align: center;
+    transition: transform 0.2s;
+  }
+
+  .timeline-card:hover { transform: translateY(-2px); }
+
+  .tc-period {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .tc-total {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+
+  .tc-baseline {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .tc-delta {
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    margin-top: 4px;
+    color: var(--accent);
+  }
+
+  .chart-area { margin-top: 8px; }
+
+  .chart-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  .bar-group { display: flex; flex-direction: column; gap: 10px; }
+  .bar-row { display: flex; align-items: center; gap: 12px; }
+
+  .bar-label {
+    font-size: 12px;
+    color: var(--muted);
+    width: 110px;
+    flex-shrink: 0;
+    text-align: right;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .bar-track {
+    flex: 1;
+    height: 20px;
+    background: var(--surface2);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s cubic-bezier(.4,0,.2,1);
+    min-width: 2px;
+  }
+
+  .bar-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    width: 90px;
+    flex-shrink: 0;
+  }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--muted);
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+  }
+
+  .empty-state p { margin-bottom: 16px; font-size: 14px; }
+
+  /* ── Projected footer ── */
+  .projected-footer {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 24px;
+    text-align: center;
+  }
+
+  .pf-divider {
+    width: 60px;
+    height: 2px;
+    background: var(--border);
+    margin: 0 auto 32px;
+  }
+
+  .pf-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .pf-value {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(3rem, 8vw, 5.5rem);
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 12px;
+    transition: color 0.3s;
+  }
+
+  .pf-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* ── Loading overlay ── */
+  .loading-overlay {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .loading-overlay.hidden { display: none; }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-overlay p {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  @media (max-width: 600px) {
+    .timeline-grid { grid-template-columns: repeat(2, 1fr); }
+    .impact-row { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <p>Loading latest data...</p>
+</div>
+
+<!-- Password modal -->
+<div class="modal-overlay" id="passwordModal">
+  <div class="modal">
+    <h3>Editor Access</h3>
+    <p>Enter the password to unlock editing mode.</p>
+    <input type="password" id="passwordInput" placeholder="••••••••" onkeydown="if(event.key==='Enter')submitPassword()">
+    <div class="modal-error" id="passwordError"></div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-submit" onclick="submitPassword()">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mode bar -->
+<div class="mode-bar">
+  <span class="save-status" id="saveStatus"></span>
+  <span class="mode-badge" id="modeBadge">Viewer</span>
+  <button class="mode-btn" id="modeBtn" onclick="handleModeBtn()">Edit</button>
+</div>
+
+<div class="wrapper">
+  <header>
+    <div class="eyebrow">Co-op Financial Planning Tool</div>
+    <h1>Reserve Impact <em>Calculator</em></h1>
+    <p class="subtitle">Model financial opportunities and see their cumulative impact on your building's reserves over time.</p>
+  </header>
+
+  <div class="readonly-notice" id="readonlyNotice">
+    👁 You are viewing a read-only snapshot. Click "Edit" in the top right to make changes.
+  </div>
+
+  <div class="reserves-banner">
+    <div>
+      <label>Current Reserve Balance</label>
+      <div class="reserves-input-group">
+        <span class="dollar-prefix">$</span>
+        <input type="text" id="currentReserves" value="50,000" inputmode="numeric" readonly>
+      </div>
+      <div style="font-size:11px; color:var(--muted); margin-top:6px; font-family:'DM Mono',monospace;">Your building's current reserve fund balance</div>
+    </div>
+  </div>
+
+  <div class="section-heading">
+    <h2>Financial Opportunities</h2>
+    <button class="add-btn" id="addBtn" onclick="addOpportunity()" disabled>+ Add Opportunity</button>
+  </div>
+
+  <div class="opportunities" id="opportunitiesList"></div>
+
+  <div class="summary-section">
+    <h2>Impact Summary</h2>
+    <div class="timeline-grid" id="timelineGrid"></div>
+    <div class="chart-area">
+      <div class="chart-title">Cumulative Reserve Growth by Opportunity (10 Years)</div>
+      <div class="bar-group" id="barChart"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+  </div>
+</div>
+
+<div class="projected-footer">
+  <div class="pf-divider"></div>
+  <div class="pf-label">Projected Reserve Balance — 10 Years</div>
+  <div class="pf-value" id="bigTotal">—</div>
+  <div class="pf-sub">Current balance + included opportunities combined over 10 years</div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const SUPABASE_URL  = 'https://elfegeidsbyxugjrcnes.supabase.co';
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVsZmVnZWlkc2J5eHVnanJjbmVzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwMTA3MDcsImV4cCI6MjA4NzU4NjcwN30.bvdzTavxR8mx_9AoM40zBT10of2weuezubNHg3gm0ec';
+const EDITOR_PASS   = '3840Gr3yst0n3$';
+const TABLE         = 'calculator_state';
+const ROW_ID        = 1;
+const COLORS        = ['#4ade80','#60a5fa','#f59e0b','#f472b6','#a78bfa','#34d399','#fb923c','#e879f9'];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let opportunities = [];
+let nextId        = 1;
+let isEditor      = false;
+let saveTimer     = null;
+
+// ── Supabase helpers ──────────────────────────────────────────────────────────
+async function dbFetch() {
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/' + TABLE + '?id=eq.' + ROW_ID + '&select=data',
+    { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }
+  );
+  if (!res.ok) throw new Error('Fetch failed');
+  const rows = await res.json();
+  return rows.length ? JSON.parse(rows[0].data) : null;
+}
+
+async function dbSave(state) {
+  const body = JSON.stringify({ id: ROW_ID, data: JSON.stringify(state) });
+  // Try update first; if 0 rows affected, insert
+  const upd = await fetch(
+    SUPABASE_URL + '/rest/v1/' + TABLE + '?id=eq.' + ROW_ID,
+    {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      },
+      body: body,
+    }
+  );
+  if (!upd.ok) throw new Error('Save failed');
+  // Check if a row was actually updated
+  const count = upd.headers.get('content-range');
+  if (!count || count === '*/0') {
+    // Row doesn't exist yet — insert
+    const ins = await fetch(
+      SUPABASE_URL + '/rest/v1/' + TABLE,
+      {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal',
+        },
+        body: body,
+      }
+    );
+    if (!ins.ok) throw new Error('Insert failed');
+  }
+}
+
+// ── Formatting ────────────────────────────────────────────────────────────────
+function fmt(n) {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 1000000) return sign + '$' + (abs / 1000000).toFixed(2) + 'M';
+  return sign + '$' + Math.round(abs).toLocaleString();
+}
+
+function escapeAttr(s) {
+  return String(s).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function escapeHTML(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Calculations ──────────────────────────────────────────────────────────────
+function getBase() {
+  const raw = document.getElementById('currentReserves').value.replace(/,/g,'').replace(/\$/g,'');
+  return parseFloat(raw) || 0;
+}
+
+function getVal(id, field) {
+  const el = document.getElementById(field + '_' + id);
+  return el ? parseFloat(el.value) || 0 : 0;
+}
+
+function calcOpp(opp, months) {
+  const upfront        = getVal(opp.id, 'upfront');
+  const oneTimeExpense = getVal(opp.id, 'oneTimeExpense');
+  const monthlyNet     = getVal(opp.id, 'monthlyIncome') - getVal(opp.id, 'monthlyExpense');
+  return (upfront - oneTimeExpense) + (monthlyNet * months);
+}
+
+function recalcAll() {
+  const base    = getBase();
+  const periods = [
+    { label: 'TODAY', months: 0   },
+    { label: '6 MO',  months: 6   },
+    { label: '5 YR',  months: 60  },
+    { label: '10 YR', months: 120 },
+  ];
+
+  opportunities.forEach(function(opp) {
+    periods.forEach(function(p) {
+      const el = document.getElementById('ic_' + p.months + '_' + opp.id);
+      if (el) el.textContent = fmt(calcOpp(opp, p.months));
+    });
+  });
+
+  const grid = document.getElementById('timelineGrid');
+  grid.innerHTML = '';
+  periods.forEach(function(p) {
+    const gained    = opportunities.reduce(function(sum, opp) {
+      return sum + (opp.included ? calcOpp(opp, p.months) : 0);
+    }, 0);
+    const projected = base + gained;
+    const card      = document.createElement('div');
+    card.className  = 'timeline-card';
+    card.innerHTML  =
+      '<div class="tc-period">'   + p.label + '</div>' +
+      '<div class="tc-total" style="color:' + (projected >= base ? 'var(--accent)' : 'var(--danger)') + '">' + fmt(projected) + '</div>' +
+      '<div class="tc-baseline">base: ' + fmt(base) + '</div>' +
+      '<div class="tc-delta">+'   + fmt(gained) + ' added</div>';
+    grid.appendChild(card);
+  });
+
+  const total10yr = opportunities.reduce(function(sum, opp) {
+    return sum + (opp.included ? calcOpp(opp, 120) : 0);
+  }, 0);
+  document.getElementById('bigTotal').textContent = fmt(base + total10yr);
+
+  const barChart = document.getElementById('barChart');
+  const legend   = document.getElementById('legend');
+  barChart.innerHTML = '';
+  legend.innerHTML   = '';
+
+  if (opportunities.length === 0) {
+    barChart.innerHTML = '<div style="color:var(--muted);font-size:13px;font-family:\'DM Mono\',monospace;">No opportunities added yet.</div>';
+    return;
+  }
+
+  const vals   = opportunities.map(function(opp) { return { opp: opp, val: calcOpp(opp, 120) }; });
+  const maxVal = Math.max.apply(null, vals.map(function(v) { return Math.abs(v.val); }).concat([1]));
+
+  vals.forEach(function(item) {
+    const opp      = item.opp, val = item.val;
+    const pct      = Math.min(100, (Math.abs(val) / maxVal) * 100);
+    const shortName = opp.name.length > 16 ? opp.name.slice(0,16) + '…' : opp.name;
+    const barColor  = opp.included ? opp.color : 'var(--muted)';
+    const barOp     = opp.included ? (val < 0 ? 0.4 : 1) : 0.3;
+    const row       = document.createElement('div');
+    row.className   = 'bar-row';
+    row.innerHTML   =
+      '<div class="bar-label">' + shortName + '</div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + barColor + ';opacity:' + barOp + '"></div></div>' +
+      '<div class="bar-value" style="color:' + barColor + '">' + fmt(val) + (opp.included ? '' : ' <span style="font-size:10px;color:var(--muted)">(excluded)</span>') + '</div>';
+    barChart.appendChild(row);
+
+    const li      = document.createElement('div');
+    li.className  = 'legend-item';
+    li.innerHTML  = '<div class="legend-dot" style="background:' + barColor + ';opacity:' + (opp.included ? 1 : 0.4) + '"></div>' + opp.name + (opp.included ? '' : ' <span style="color:var(--muted);font-size:10px">(excluded)</span>');
+    legend.appendChild(li);
+  });
+}
+
+// ── Rendering ─────────────────────────────────────────────────────────────────
+function renderOpportunities() {
+  const list = document.getElementById('opportunitiesList');
+
+  if (opportunities.length === 0) {
+    list.innerHTML = '<div class="empty-state"><p>No opportunities added yet.</p>' +
+      (isEditor ? '<p style="font-size:12px">Click "+ Add Opportunity" to model a financial action for your building.</p>' : '') +
+      '</div>';
+    recalcAll();
+    return;
+  }
+
+  list.innerHTML = '';
+  opportunities.forEach(function(opp) {
+    const isExcluded = !opp.included;
+    const ro         = !isEditor;         // readonly flag
+    const card       = document.createElement('div');
+    card.className   = 'opp-card' + (isExcluded ? ' excluded' : '');
+    card.id          = 'card_' + opp.id;
+
+    card.innerHTML =
+      '<div class="opp-header">' +
+        '<div class="opp-color-dot" id="dot_' + opp.id + '" style="background:' + (isExcluded ? 'var(--muted)' : opp.color) + '"></div>' +
+        '<input class="opp-name-input" id="name_' + opp.id + '" value="' + escapeAttr(opp.name) + '" placeholder="Opportunity name"' +
+          (ro ? ' readonly' : ' oninput="opportunities.find(function(o){return o.id==' + opp.id + ';}).name=this.value; recalcAll(); scheduleSave();" onclick="event.stopPropagation()"') + '>' +
+        '<button id="pill_' + opp.id + '" class="include-toggle' + (isExcluded ? ' excluded' : '') + '"' +
+          (ro ? ' disabled' : ' onclick="toggleInclude(' + opp.id + ')"') + '>' +
+          '<div class="pill-dot"></div>' +
+          '<span class="pill-label">' + (isExcluded ? 'EXCLUDED' : 'INCLUDED') + '</span>' +
+        '</button>' +
+        '<button class="opp-expand-btn" id="toggle_' + opp.id + '" onclick="toggleBody(' + opp.id + ')">' + (opp.open ? 'collapse' : 'expand') + '</button>' +
+        '<button class="opp-delete"' + (ro ? ' disabled' : ' onclick="removeOpportunity(' + opp.id + ')"') + ' title="Remove">✕</button>' +
+      '</div>' +
+      '<div class="opp-body ' + (opp.open ? 'open' : '') + '" id="body_' + opp.id + '">' +
+        '<div class="description-group">' +
+          '<label>Description</label>' +
+          '<textarea id="desc_' + opp.id + '" placeholder="Describe this opportunity — context, assumptions, notes..."' +
+            (ro ? ' readonly' : ' oninput="opportunities.find(function(o){return o.id==' + opp.id + ';}).description=this.value; scheduleSave();"') + '>' + escapeHTML(opp.description) + '</textarea>' +
+        '</div>' +
+        '<div class="fields-grid">' +
+          mkField('Upfront Cash Infusion', 'upfront',        opp.id, opp.upfront,        1000, 'One-time cash received (e.g. sale proceeds)', ro) +
+          mkField('One-Time Expense',      'oneTimeExpense',  opp.id, opp.oneTimeExpense,  500,  'Upfront costs (legal, transaction fees, etc.)', ro) +
+          mkField('Monthly Income',        'monthlyIncome',   opp.id, opp.monthlyIncome,   50,   'Recurring income per month', ro) +
+          mkField('Monthly Expense',       'monthlyExpense',  opp.id, opp.monthlyExpense,  50,   'Recurring costs per month', ro) +
+        '</div>' +
+        '<div class="impact-row">' +
+          mkImpact('Today',    0,   opp.id, isExcluded) +
+          mkImpact('6 Months', 6,   opp.id, isExcluded) +
+          mkImpact('5 Years',  60,  opp.id, isExcluded) +
+          mkImpact('10 Years', 120, opp.id, isExcluded) +
+        '</div>' +
+      '</div>';
+
+    list.appendChild(card);
+  });
+
+  recalcAll();
+}
+
+function mkField(label, field, id, val, step, hint, ro) {
+  return '<div class="field-group"><label>' + label + '</label>' +
+    '<div class="field-input-wrap"><span class="prefix">$</span>' +
+    '<input type="number" id="' + field + '_' + id + '" value="' + val + '" min="0" step="' + step + '" placeholder="0"' +
+    (ro ? ' readonly' : ' oninput="recalcAll(); scheduleSave();"') + '>' +
+    '</div><div class="hint">' + hint + '</div></div>';
+}
+
+function mkImpact(label, months, id, isExcluded) {
+  return '<div class="impact-cell"><div class="ic-label">' + label + '</div>' +
+    '<div class="ic-value' + (isExcluded ? ' excluded-val' : '') + '" id="ic_' + months + '_' + id + '">$0</div></div>';
+}
+
+// ── Opportunity actions ───────────────────────────────────────────────────────
+function addOpportunity(defaults) {
+  if (!isEditor) return;
+  defaults = defaults || {};
+  const id       = nextId++;
+  const colorIdx = opportunities.length % COLORS.length;
+  opportunities.push({
+    id:             id,
+    name:           defaults.name        || 'New Opportunity',
+    description:    defaults.description || '',
+    upfront:        defaults.upfront        || 0,
+    monthlyIncome:  defaults.monthlyIncome  || 0,
+    monthlyExpense: defaults.monthlyExpense || 0,
+    oneTimeExpense: defaults.oneTimeExpense || 0,
+    color:          COLORS[colorIdx],
+    open:           true,
+    included:       true,
+  });
+  renderOpportunities();
+  scheduleSave();
+}
+
+function removeOpportunity(id) {
+  if (!isEditor) return;
+  opportunities = opportunities.filter(function(o) { return o.id !== id; });
+  renderOpportunities();
+  scheduleSave();
+}
+
+function toggleInclude(id) {
+  if (!isEditor) return;
+  const opp = opportunities.find(function(o) { return o.id === id; });
+  if (!opp) return;
+  opp.included = !opp.included;
+  const card = document.getElementById('card_' + id);
+  const pill = document.getElementById('pill_' + id);
+  const dot  = document.getElementById('dot_'  + id);
+  if (opp.included) {
+    card.classList.remove('excluded');
+    pill.classList.remove('excluded');
+    pill.querySelector('.pill-label').textContent = 'INCLUDED';
+    if (dot) dot.style.background = opp.color;
+  } else {
+    card.classList.add('excluded');
+    pill.classList.add('excluded');
+    pill.querySelector('.pill-label').textContent = 'EXCLUDED';
+  }
+  ['0','6','60','120'].forEach(function(m) {
+    const el = document.getElementById('ic_' + m + '_' + id);
+    if (el) {
+      if (opp.included) el.classList.remove('excluded-val');
+      else              el.classList.add('excluded-val');
+    }
+  });
+  recalcAll();
+  scheduleSave();
+}
+
+function toggleBody(id) {
+  const body   = document.getElementById('body_'   + id);
+  const btn    = document.getElementById('toggle_' + id);
+  const opp    = opportunities.find(function(o) { return o.id === id; });
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  btn.textContent = isOpen ? 'expand' : 'collapse';
+  if (opp) opp.open = !isOpen;
+}
+
+// ── Save / load ───────────────────────────────────────────────────────────────
+function captureFieldValues() {
+  opportunities.forEach(function(opp) {
+    opp.name           = (document.getElementById('name_'           + opp.id) || {}).value || opp.name;
+    opp.description    = (document.getElementById('desc_'           + opp.id) || {}).value || opp.description;
+    opp.upfront        = parseFloat((document.getElementById('upfront_'        + opp.id) || {}).value) || 0;
+    opp.oneTimeExpense = parseFloat((document.getElementById('oneTimeExpense_' + opp.id) || {}).value) || 0;
+    opp.monthlyIncome  = parseFloat((document.getElementById('monthlyIncome_'  + opp.id) || {}).value) || 0;
+    opp.monthlyExpense = parseFloat((document.getElementById('monthlyExpense_' + opp.id) || {}).value) || 0;
+  });
+}
+
+function scheduleSave() {
+  if (!isEditor) return;
+  setStatus('saving', 'Saving…');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(function() { doSave(); }, 800);
+}
+
+async function doSave() {
+  captureFieldValues();
+  const state = {
+    currentReserves: document.getElementById('currentReserves').value,
+    opportunities:   opportunities,
+    nextId:          nextId,
+  };
+  try {
+    await dbSave(state);
+    setStatus('saved', 'Saved ✓');
+    setTimeout(function() { setStatus('', ''); }, 2500);
+  } catch(e) {
+    setStatus('error', 'Save failed — check connection');
+  }
+}
+
+function setStatus(cls, msg) {
+  const el = document.getElementById('saveStatus');
+  el.className = 'save-status' + (cls ? ' ' + cls : '');
+  el.textContent = msg;
+}
+
+async function loadFromDB() {
+  try {
+    const state = await dbFetch();
+    if (state) {
+      applyState(state);
+      return true;
+    }
+  } catch(e) {
+    console.warn('Could not load from DB:', e);
+  }
+  return false;
+}
+
+function applyState(state) {
+  if (state.currentReserves) {
+    document.getElementById('currentReserves').value = state.currentReserves;
+  }
+  if (Array.isArray(state.opportunities)) {
+    opportunities = state.opportunities;
+    nextId        = state.nextId || (opportunities.length + 1);
+  }
+  renderOpportunities();
+}
+
+// ── Mode switching ────────────────────────────────────────────────────────────
+function setEditorMode(on) {
+  isEditor = on;
+  document.getElementById('modeBadge').textContent    = on ? 'Editor' : 'Viewer';
+  document.getElementById('modeBadge').className      = 'mode-badge' + (on ? ' editor-mode' : '');
+  document.getElementById('modeBtn').textContent      = on ? 'Lock' : 'Edit';
+  document.getElementById('addBtn').disabled          = !on;
+  document.getElementById('currentReserves').readOnly = !on;
+  document.getElementById('readonlyNotice').style.display = on ? 'none' : 'block';
+  renderOpportunities();
+  if (on) {
+    document.getElementById('currentReserves').addEventListener('input',  function() { recalcAll(); scheduleSave(); });
+    document.getElementById('currentReserves').addEventListener('change', function() { recalcAll(); scheduleSave(); });
+  }
+}
+
+function handleModeBtn() {
+  if (isEditor) {
+    // Lock
+    captureFieldValues();
+    doSave();
+    setEditorMode(false);
+  } else {
+    document.getElementById('passwordModal').classList.add('open');
+    setTimeout(function() { document.getElementById('passwordInput').focus(); }, 50);
+  }
+}
+
+function submitPassword() {
+  const val = document.getElementById('passwordInput').value;
+  if (val === EDITOR_PASS) {
+    document.getElementById('passwordModal').classList.remove('open');
+    document.getElementById('passwordInput').value = '';
+    document.getElementById('passwordError').textContent = '';
+    setEditorMode(true);
+  } else {
+    document.getElementById('passwordError').textContent = 'Incorrect password. Try again.';
+    document.getElementById('passwordInput').value = '';
+    document.getElementById('passwordInput').focus();
+  }
+}
+
+function closeModal() {
+  document.getElementById('passwordModal').classList.remove('open');
+  document.getElementById('passwordInput').value = '';
+  document.getElementById('passwordError').textContent = '';
+}
+
+// ── Polling for live updates (viewer mode) ────────────────────────────────────
+function startPolling() {
+  setInterval(async function() {
+    if (!isEditor) {
+      try {
+        const state = await dbFetch();
+        if (state) applyState(state);
+      } catch(e) {}
+    }
+  }, 15000); // refresh every 15 seconds
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+(async function init() {
+  const loaded = await loadFromDB();
+  if (!loaded) {
+    // First run — seed with examples
+    isEditor = true; // temporarily allow addOpportunity
+    addOpportunity({ name: 'Sell Parking Spaces',  description: 'Sell building-owned parking spaces to shareholders or third parties. One-time infusion plus ongoing maintenance income per space per month.', upfront: 150000, oneTimeExpense: 5000,  monthlyIncome: 1800, monthlyExpense: 0   });
+    addOpportunity({ name: 'Laundry Room Revenue', description: 'Install or upgrade coin-op/card laundry machines. Revenue share with vendor. Initial equipment and installation cost offset by monthly income.', upfront: 0,      oneTimeExpense: 8000,  monthlyIncome: 600,  monthlyExpense: 100 });
+    addOpportunity({ name: 'Roof Antenna Lease',   description: 'Lease rooftop space to a telecom carrier for antenna/cell equipment. Small upfront signing bonus plus reliable monthly lease payments.', upfront: 5000,   oneTimeExpense: 500,   monthlyIncome: 800,  monthlyExpense: 0   });
+    isEditor = false;
+    renderOpportunities();
+  }
+
+  // Always start in viewer mode
+  setEditorMode(false);
+
+  // Hide loading screen
+  document.getElementById('loadingOverlay').classList.add('hidden');
+
+  // Start polling so viewers see live updates
+  startPolling();
+})();
+</script>
+</body>
+</html>
