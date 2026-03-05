@@ -964,7 +964,7 @@ function recalcAll() {
     return;
   }
 
-  const vals   = opportunities.map(function(opp) { return { opp: opp, val: calcOpp(opp, 120) }; });
+  const vals   = opportunities.map(function(opp) { return { opp: opp, val: calcOpp(opp, 120) }; }).sort(function(a, b) { return b.val - a.val; });
   const maxVal = Math.max.apply(null, vals.map(function(v) { return Math.abs(v.val); }).concat([1]));
 
   vals.forEach(function(item) {
