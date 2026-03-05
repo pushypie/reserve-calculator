@@ -863,39 +863,22 @@ async function dbFetch() {
 
 async function dbSave(state) {
   const body = JSON.stringify({ id: ROW_ID, data: JSON.stringify(state) });
-  // Try update first; if 0 rows affected, insert
-  const upd = await fetch(
-    SUPABASE_URL + '/rest/v1/' + TABLE + '?id=eq.' + ROW_ID,
+  const res = await fetch(
+    SUPABASE_URL + '/rest/v1/' + TABLE,
     {
-      method: 'PATCH',
+      method: 'POST',
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': 'Bearer ' + SUPABASE_KEY,
         'Content-Type': 'application/json',
-        'Prefer': 'return=minimal',
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
       },
       body: body,
     }
   );
-  if (!upd.ok) throw new Error('Save failed');
-  // Check if a row was actually updated
-  const count = upd.headers.get('content-range');
-  if (!count || count === '*/0') {
-    // Row doesn't exist yet — insert
-    const ins = await fetch(
-      SUPABASE_URL + '/rest/v1/' + TABLE,
-      {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Authorization': 'Bearer ' + SUPABASE_KEY,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal',
-        },
-        body: body,
-      }
-    );
-    if (!ins.ok) throw new Error('Insert failed');
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error('Save failed: ' + errText);
   }
 }
 
