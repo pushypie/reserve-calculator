@@ -922,6 +922,7 @@ let opportunities = [];
 let nextId        = 1;
 let isEditor      = false;
 let saveTimer     = null;
+let hiddenIds     = new Set(); // viewer-local hide state, never saved
 
 // ── Supabase helpers ──────────────────────────────────────────────────────────
 async function dbFetch() {
@@ -1009,7 +1010,7 @@ function recalcAll() {
   grid.innerHTML = '';
   periods.forEach(function(p) {
     const gained    = opportunities.reduce(function(sum, opp) {
-      return sum + (opp.included ? calcOpp(opp, p.months) : 0);
+      return sum + (opp.included && !hiddenIds.has(opp.id) ? calcOpp(opp, p.months) : 0);
     }, 0);
     const projected = base + gained;
     const card      = document.createElement('div');
@@ -1023,7 +1024,7 @@ function recalcAll() {
   });
 
   const total10yr = opportunities.reduce(function(sum, opp) {
-    return sum + (opp.included ? calcOpp(opp, 120) : 0);
+    return sum + (opp.included && !hiddenIds.has(opp.id) ? calcOpp(opp, 120) : 0);
   }, 0);
   document.getElementById('bigTotal').textContent = fmt(base + total10yr);
 
@@ -1049,8 +1050,9 @@ function recalcAll() {
   vals.forEach(function(item) {
     const opp       = item.opp, val = item.val;
     const shortName = opp.name.length > 16 ? opp.name.slice(0,16) + '…' : opp.name;
-    const barColor  = opp.included ? opp.color : 'var(--muted)';
-    const barOp     = opp.included ? 1 : 0.3;
+    const isHidden  = hiddenIds.has(opp.id);
+    const barColor  = (opp.included && !isHidden) ? opp.color : 'var(--muted)';
+    const barOp     = (opp.included && !isHidden) ? 1 : 0.3;
     const isNeg     = val < 0;
     // pct is relative to each side's own max, so bars always fill proportionally
     const pct       = isNeg
@@ -1069,12 +1071,13 @@ function recalcAll() {
       '<div class="bar-track-right">' +
         '<div class="bar-fill-right" style="width:' + (isNeg ? 0 : pct) + '%;background:' + barColor + ';opacity:' + barOp + '"></div>' +
       '</div>' +
-      '<div class="bar-value" style="color:' + (isNeg ? 'var(--danger)' : barColor) + '">' + fmt(val) + (opp.included ? '' : ' <span style="font-size:10px;color:var(--muted)">(excluded)</span>') + '</div>';
+      '<div class="bar-value" style="color:' + ((opp.included && !isHidden) ? (isNeg ? 'var(--danger)' : barColor) : 'var(--muted)') + '">' + fmt(val) + (!opp.included ? ' <span style="font-size:10px;color:var(--muted)">(excluded)</span>' : isHidden ? ' <span style="font-size:10px;color:var(--muted)">(hidden)</span>' : '') + '</div>';
     barChart.appendChild(row);
 
     const li      = document.createElement('div');
     li.className  = 'legend-item';
-    li.innerHTML  = '<div class="legend-dot" style="background:' + barColor + ';opacity:' + (opp.included ? 1 : 0.4) + '"></div>' + opp.name + (opp.included ? '' : ' <span style="color:var(--muted);font-size:10px">(excluded)</span>');
+    const liActive = opp.included && !hiddenIds.has(opp.id);
+    li.innerHTML  = '<div class="legend-dot" style="background:' + barColor + ';opacity:' + (liActive ? 1 : 0.4) + '"></div>' + opp.name + (!opp.included ? ' <span style="color:var(--muted);font-size:10px">(excluded)</span>' : hiddenIds.has(opp.id) ? ' <span style="color:var(--muted);font-size:10px">(hidden)</span>' : '');
     legend.appendChild(li);
   });
 }
@@ -1104,10 +1107,10 @@ function renderOpportunities() {
         '<div class="opp-color-dot" id="dot_' + opp.id + '" style="background:' + (isExcluded ? 'var(--muted)' : opp.color) + '"></div>' +
         '<input class="opp-name-input" id="name_' + opp.id + '" value="' + escapeAttr(opp.name) + '" placeholder="Opportunity name"' +
           (ro ? ' readonly' : ' oninput="opportunities.find(function(o){return o.id==' + opp.id + ';}).name=this.value; recalcAll(); scheduleSave();" onclick="event.stopPropagation()"') + '>' +
-        '<button id="pill_' + opp.id + '" class="include-toggle' + (isExcluded ? ' excluded' : '') + '"' +
-          (ro ? ' disabled' : ' onclick="toggleInclude(' + opp.id + ')"') + '>' +
+        '<button id="pill_' + opp.id + '" class="include-toggle' + (isExcluded || hiddenIds.has(opp.id) ? ' excluded' : '') + '"' +
+          (ro ? ' onclick="toggleHide(' + opp.id + ')"' : ' onclick="toggleInclude(' + opp.id + ')"') + '>' +
           '<div class="pill-dot"></div>' +
-          '<span class="pill-label">' + (isExcluded ? 'EXCLUDED' : 'INCLUDED') + '</span>' +
+          '<span class="pill-label">' + (isExcluded ? 'EXCLUDED' : hiddenIds.has(opp.id) ? 'HIDDEN' : (ro ? 'VISIBLE' : 'INCLUDED')) + '</span>' +
         '</button>' +
         '<button class="opp-expand-btn" id="toggle_' + opp.id + '" onclick="toggleBody(' + opp.id + ')">' + (opp.open ? 'collapse' : 'expand') + '</button>' +
         '<button class="opp-delete"' + (ro ? ' disabled' : ' onclick="removeOpportunity(' + opp.id + ')"') + ' title="Remove">✕</button>' +
@@ -1178,6 +1181,39 @@ function removeOpportunity(id) {
   opportunities = opportunities.filter(function(o) { return o.id !== id; });
   renderOpportunities();
   scheduleSave();
+}
+
+function toggleHide(id) {
+  // Viewer-local only — never saved to DB
+  if (hiddenIds.has(id)) {
+    hiddenIds.delete(id);
+  } else {
+    hiddenIds.add(id);
+  }
+  const isHidden = hiddenIds.has(id);
+  const card = document.getElementById('card_' + id);
+  const pill = document.getElementById('pill_' + id);
+  const dot  = document.getElementById('dot_'  + id);
+  const opp  = opportunities.find(function(o) { return o.id === id; });
+  if (isHidden) {
+    card.classList.add('excluded');
+    pill.classList.add('excluded');
+    pill.querySelector('.pill-label').textContent = 'HIDDEN';
+    if (dot) dot.style.background = 'var(--muted)';
+  } else {
+    card.classList.remove('excluded');
+    pill.classList.remove('excluded');
+    pill.querySelector('.pill-label').textContent = 'VISIBLE';
+    if (dot && opp) dot.style.background = opp.color;
+  }
+  ['0','6','60','120'].forEach(function(m) {
+    const el = document.getElementById('ic_' + m + '_' + id);
+    if (el) {
+      if (isHidden) el.classList.add('excluded-val');
+      else          el.classList.remove('excluded-val');
+    }
+  });
+  recalcAll();
 }
 
 function toggleInclude(id) {
@@ -1277,6 +1313,7 @@ async function loadFromDB() {
 }
 
 function applyState(state) {
+  hiddenIds = new Set(); // reset local hidden state on fresh load
   if (state.currentReserves) {
     document.getElementById('currentReserves').value = state.currentReserves;
   }
