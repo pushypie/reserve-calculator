@@ -1396,6 +1396,111 @@ function closeModal() {
 }
 
 // ── Polling for live updates (viewer mode) ────────────────────────────────────
+function applyStateNoRerender(state) {
+  // Update data values in-place WITHOUT rebuilding the DOM.
+  // This preserves all viewer-local state (hiddenIds, expanded cards, etc.)
+
+  // Update current reserves input value
+  if (state.currentReserves) {
+    document.getElementById('currentReserves').value = state.currentReserves;
+  }
+
+  // Update description textareas
+  var descFields = ['reservesDesc', 'summaryDesc', 'oppsDesc'];
+  descFields.forEach(function(fid) {
+    if (state[fid] !== undefined) {
+      var el = document.getElementById(fid);
+      if (el) el.value = state[fid];
+    }
+  });
+
+  // Update opportunity data and DOM fields in-place
+  if (Array.isArray(state.opportunities)) {
+    // Check if opportunity list has changed (added/removed/reordered)
+    // If so, we must do a full re-render (rare editor action)
+    var currentIds = opportunities.map(function(o) { return o.id; }).join(',');
+    var incomingIds = state.opportunities.map(function(o) { return o.id; }).join(',');
+
+    if (currentIds !== incomingIds) {
+      // Opportunity list structure changed — full re-render needed
+      // but restore hiddenIds afterward
+      var preserved = new Set(hiddenIds);
+      opportunities = state.opportunities;
+      nextId = state.nextId || (opportunities.length + 1);
+      renderOpportunities();
+      hiddenIds = preserved;
+      // Re-apply hidden visual state
+      hiddenIds.forEach(function(id) {
+        var card = document.getElementById('card_' + id);
+        var pill = document.getElementById('pill_' + id);
+        var dot  = document.getElementById('dot_'  + id);
+        if (card) card.classList.add('excluded');
+        if (pill) {
+          pill.classList.add('excluded');
+          var lbl = pill.querySelector('.pill-label');
+          if (lbl) lbl.textContent = 'HIDDEN';
+        }
+        if (dot) dot.style.background = 'var(--muted)';
+        ['0','6','60','120'].forEach(function(m) {
+          var el = document.getElementById('ic_' + m + '_' + id);
+          if (el) el.classList.add('excluded-val');
+        });
+      });
+    } else {
+      // Same opportunities — just update field values in-place, no DOM rebuild
+      state.opportunities.forEach(function(incoming) {
+        var opp = opportunities.find(function(o) { return o.id === incoming.id; });
+        if (!opp) return;
+        // Update data model
+        opp.name           = incoming.name;
+        opp.description    = incoming.description;
+        opp.upfront        = incoming.upfront;
+        opp.oneTimeExpense = incoming.oneTimeExpense;
+        opp.monthlyIncome  = incoming.monthlyIncome;
+        opp.monthlyExpense = incoming.monthlyExpense;
+        opp.included       = incoming.included;
+        // Update DOM fields in-place
+        var nameEl = document.getElementById('name_' + opp.id);
+        if (nameEl) nameEl.value = opp.name;
+        var descEl = document.getElementById('desc_' + opp.id);
+        if (descEl) descEl.value = opp.description;
+        var upEl = document.getElementById('upfront_' + opp.id);
+        if (upEl) upEl.value = opp.upfront;
+        var oteEl = document.getElementById('oneTimeExpense_' + opp.id);
+        if (oteEl) oteEl.value = opp.oneTimeExpense;
+        var miEl = document.getElementById('monthlyIncome_' + opp.id);
+        if (miEl) miEl.value = opp.monthlyIncome;
+        var meEl = document.getElementById('monthlyExpense_' + opp.id);
+        if (meEl) meEl.value = opp.monthlyExpense;
+        // Update included pill (only if not hidden by viewer)
+        if (!hiddenIds.has(opp.id)) {
+          var card = document.getElementById('card_' + opp.id);
+          var pill = document.getElementById('pill_' + opp.id);
+          var dot  = document.getElementById('dot_'  + opp.id);
+          if (opp.included) {
+            if (card) card.classList.remove('excluded');
+            if (pill) {
+              pill.classList.remove('excluded');
+              var lbl = pill.querySelector('.pill-label');
+              if (lbl) lbl.textContent = 'VISIBLE';
+            }
+            if (dot) dot.style.background = opp.color;
+          } else {
+            if (card) card.classList.add('excluded');
+            if (pill) {
+              pill.classList.add('excluded');
+              var lbl = pill.querySelector('.pill-label');
+              if (lbl) lbl.textContent = 'EXCLUDED';
+            }
+          }
+        }
+      });
+    }
+    nextId = state.nextId || nextId;
+  }
+  recalcAll();
+}
+
 function startPolling() {
   setInterval(async function() {
     if (!isEditor) {
@@ -1404,30 +1509,13 @@ function startPolling() {
         if (state) {
           const incoming = JSON.stringify(state);
           if (incoming !== lastSeenData) {
-            // Editor made real changes — update, but preserve hidden state
             lastSeenData = incoming;
-            const preserved = new Set(hiddenIds);
-            applyState(state);
-            hiddenIds = preserved;
-            // Re-apply hidden visual state after render
-            hiddenIds.forEach(function(id) {
-              const card = document.getElementById('card_' + id);
-              const pill = document.getElementById('pill_' + id);
-              const dot  = document.getElementById('dot_'  + id);
-              if (card) card.classList.add('excluded');
-              if (pill) { pill.classList.add('excluded'); pill.querySelector('.pill-label').textContent = 'HIDDEN'; }
-              if (dot)  dot.style.background = 'var(--muted)';
-              ['0','6','60','120'].forEach(function(m) {
-                const el = document.getElementById('ic_' + m + '_' + id);
-                if (el) el.classList.add('excluded-val');
-              });
-            });
-            recalcAll();
+            applyStateNoRerender(state);
           }
         }
       } catch(e) {}
     }
-  }, 15000); // refresh every 15 seconds
+  }, 15000);
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
