@@ -268,6 +268,27 @@
 
   .reserves-input-group { display: flex; align-items: center; gap: 8px; }
 
+  .reserves-desc-group {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .reserves-desc-group label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .reserves-desc-group textarea {
+    width: 100%;
+    min-height: 72px;
+    font-size: 13px;
+  }
+
   .dollar-prefix {
     font-family: 'DM Mono', monospace;
     font-size: 18px;
@@ -624,30 +645,61 @@
   }
 
   .bar-group { display: flex; flex-direction: column; gap: 10px; }
-  .bar-row { display: flex; align-items: center; gap: 12px; }
+
+  .bar-row {
+    display: grid;
+    grid-template-columns: 110px var(--left-pct, 1fr) 2px var(--right-pct, 1fr) 90px;
+    align-items: center;
+    gap: 0;
+  }
 
   .bar-label {
     font-size: 12px;
     color: var(--muted);
-    width: 110px;
-    flex-shrink: 0;
     text-align: right;
     font-family: 'DM Mono', monospace;
+    padding-right: 10px;
   }
 
-  .bar-track {
-    flex: 1;
+  /* left side (negative values) */
+  .bar-track-left {
     height: 20px;
-    background: var(--surface2);
-    border-radius: 4px;
-    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
   }
 
-  .bar-fill {
+  .bar-fill-left {
     height: 100%;
-    border-radius: 4px;
+    border-radius: 4px 0 0 4px;
     transition: width 0.5s cubic-bezier(.4,0,.2,1);
-    min-width: 2px;
+    position: absolute;
+    right: 0;
+  }
+
+  /* center axis line */
+  .bar-axis {
+    width: 2px;
+    height: 28px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  /* right side (positive values) */
+  .bar-track-right {
+    height: 20px;
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .bar-fill-right {
+    height: 100%;
+    border-radius: 0 4px 4px 0;
+    transition: width 0.5s cubic-bezier(.4,0,.2,1);
+    position: absolute;
+    left: 0;
   }
 
   .bar-value {
@@ -655,6 +707,7 @@
     font-size: 12px;
     width: 90px;
     flex-shrink: 0;
+    padding-left: 10px;
   }
 
   .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
@@ -800,13 +853,26 @@
   </div>
 
   <div class="reserves-banner">
-    <div>
+    <div style="flex-shrink:0">
       <label>Current Reserve Balance</label>
       <div class="reserves-input-group">
         <span class="dollar-prefix">$</span>
         <input type="text" id="currentReserves" value="50,000" inputmode="numeric" readonly>
       </div>
-      <div style="font-size:11px; color:var(--muted); margin-top:6px; font-family:'DM Mono',monospace;">Your building's current reserve fund balance</div>
+    </div>
+    <div class="reserves-desc-group">
+      <label>Description</label>
+      <textarea id="reservesDesc" placeholder="Add context or notes about the current reserve balance..." readonly></textarea>
+    </div>
+  </div>
+
+  <div class="summary-section" style="margin-bottom:40px;">
+    <h2>Impact Summary</h2>
+    <div class="timeline-grid" id="timelineGrid"></div>
+    <div class="chart-area">
+      <div class="chart-title">Cumulative Reserve Growth by Opportunity (10 Years)</div>
+      <div class="bar-group" id="barChart"></div>
+      <div class="legend" id="legend"></div>
     </div>
   </div>
 
@@ -816,16 +882,6 @@
   </div>
 
   <div class="opportunities" id="opportunitiesList"></div>
-
-  <div class="summary-section">
-    <h2>Impact Summary</h2>
-    <div class="timeline-grid" id="timelineGrid"></div>
-    <div class="chart-area">
-      <div class="chart-title">Cumulative Reserve Growth by Opportunity (10 Years)</div>
-      <div class="bar-group" id="barChart"></div>
-      <div class="legend" id="legend"></div>
-    </div>
-  </div>
 </div>
 
 <div class="projected-footer">
@@ -965,20 +1021,38 @@ function recalcAll() {
   }
 
   const vals   = opportunities.map(function(opp) { return { opp: opp, val: calcOpp(opp, 120) }; }).sort(function(a, b) { return b.val - a.val; });
-  const maxVal = Math.max.apply(null, vals.map(function(v) { return Math.abs(v.val); }).concat([1]));
+  const maxNeg = Math.abs(Math.min.apply(null, vals.map(function(v) { return v.val; }).concat([0])));
+  const maxPos = Math.max.apply(null, vals.map(function(v) { return v.val; }).concat([0]));
+  const total  = maxNeg + maxPos || 1;
+  // Axis sits proportionally: e.g. if max negative is 20% of range, axis is 20% from left
+  // Add a small min (5%) so axis is always visible even with no negatives
+  const leftFr  = Math.max(maxNeg / total, 0.05).toFixed(4);
+  const rightFr = (1 - parseFloat(leftFr)).toFixed(4);
 
   vals.forEach(function(item) {
-    const opp      = item.opp, val = item.val;
-    const pct      = Math.min(100, (Math.abs(val) / maxVal) * 100);
+    const opp       = item.opp, val = item.val;
     const shortName = opp.name.length > 16 ? opp.name.slice(0,16) + '…' : opp.name;
     const barColor  = opp.included ? opp.color : 'var(--muted)';
-    const barOp     = opp.included ? (val < 0 ? 0.4 : 1) : 0.3;
+    const barOp     = opp.included ? 1 : 0.3;
+    const isNeg     = val < 0;
+    // pct is relative to each side's own max, so bars always fill proportionally
+    const pct       = isNeg
+      ? Math.min(100, (Math.abs(val) / maxNeg) * 100)
+      : Math.min(100, (val / maxPos) * 100);
     const row       = document.createElement('div');
     row.className   = 'bar-row';
+    row.style.setProperty('--left-pct',  leftFr  + 'fr');
+    row.style.setProperty('--right-pct', rightFr + 'fr');
     row.innerHTML   =
       '<div class="bar-label">' + shortName + '</div>' +
-      '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + barColor + ';opacity:' + barOp + '"></div></div>' +
-      '<div class="bar-value" style="color:' + barColor + '">' + fmt(val) + (opp.included ? '' : ' <span style="font-size:10px;color:var(--muted)">(excluded)</span>') + '</div>';
+      '<div class="bar-track-left">' +
+        '<div class="bar-fill-left" style="width:' + (isNeg ? pct : 0) + '%;background:' + (isNeg ? 'var(--danger)' : 'transparent') + ';opacity:' + barOp + '"></div>' +
+      '</div>' +
+      '<div class="bar-axis"></div>' +
+      '<div class="bar-track-right">' +
+        '<div class="bar-fill-right" style="width:' + (isNeg ? 0 : pct) + '%;background:' + barColor + ';opacity:' + barOp + '"></div>' +
+      '</div>' +
+      '<div class="bar-value" style="color:' + (isNeg ? 'var(--danger)' : barColor) + '">' + fmt(val) + (opp.included ? '' : ' <span style="font-size:10px;color:var(--muted)">(excluded)</span>') + '</div>';
     barChart.appendChild(row);
 
     const li      = document.createElement('div');
@@ -1151,6 +1225,7 @@ async function doSave() {
   captureFieldValues();
   const state = {
     currentReserves: document.getElementById('currentReserves').value,
+    reservesDesc:    (document.getElementById('reservesDesc') || {}).value || '',
     opportunities:   opportunities,
     nextId:          nextId,
   };
@@ -1186,6 +1261,10 @@ function applyState(state) {
   if (state.currentReserves) {
     document.getElementById('currentReserves').value = state.currentReserves;
   }
+  if (state.reservesDesc !== undefined) {
+    const el = document.getElementById('reservesDesc');
+    if (el) el.value = state.reservesDesc;
+  }
   if (Array.isArray(state.opportunities)) {
     opportunities = state.opportunities;
     nextId        = state.nextId || (opportunities.length + 1);
@@ -1201,11 +1280,14 @@ function setEditorMode(on) {
   document.getElementById('modeBtn').textContent      = on ? 'Lock' : 'Edit';
   document.getElementById('addBtn').disabled          = !on;
   document.getElementById('currentReserves').readOnly = !on;
+  const rdEl = document.getElementById('reservesDesc');
+  if (rdEl) rdEl.readOnly = !on;
   document.getElementById('readonlyNotice').style.display = on ? 'none' : 'block';
   renderOpportunities();
   if (on) {
     document.getElementById('currentReserves').addEventListener('input',  function() { recalcAll(); scheduleSave(); });
     document.getElementById('currentReserves').addEventListener('change', function() { recalcAll(); scheduleSave(); });
+    document.getElementById('reservesDesc').addEventListener('input', function() { scheduleSave(); });
   }
 }
 
