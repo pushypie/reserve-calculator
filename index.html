@@ -923,6 +923,7 @@ let nextId        = 1;
 let isEditor      = false;
 let saveTimer     = null;
 let hiddenIds     = new Set(); // viewer-local hide state, never saved
+let lastSeenData  = null;      // last raw JSON string from DB, for change detection
 
 // ── Supabase helpers ──────────────────────────────────────────────────────────
 async function dbFetch() {
@@ -1286,6 +1287,7 @@ async function doSave() {
   };
   try {
     await dbSave(state);
+    lastSeenData = JSON.stringify(state);
     setStatus('saved', 'Saved ✓');
     setTimeout(function() { setStatus('', ''); }, 2500);
   } catch(e) {
@@ -1303,6 +1305,7 @@ async function loadFromDB() {
   try {
     const state = await dbFetch();
     if (state) {
+      lastSeenData = JSON.stringify(state);
       applyState(state);
       return true;
     }
@@ -1313,7 +1316,6 @@ async function loadFromDB() {
 }
 
 function applyState(state) {
-  hiddenIds = new Set(); // reset local hidden state on fresh load
   if (state.currentReserves) {
     document.getElementById('currentReserves').value = state.currentReserves;
   }
@@ -1399,7 +1401,30 @@ function startPolling() {
     if (!isEditor) {
       try {
         const state = await dbFetch();
-        if (state) applyState(state);
+        if (state) {
+          const incoming = JSON.stringify(state);
+          if (incoming !== lastSeenData) {
+            // Editor made real changes — update, but preserve hidden state
+            lastSeenData = incoming;
+            const preserved = new Set(hiddenIds);
+            applyState(state);
+            hiddenIds = preserved;
+            // Re-apply hidden visual state after render
+            hiddenIds.forEach(function(id) {
+              const card = document.getElementById('card_' + id);
+              const pill = document.getElementById('pill_' + id);
+              const dot  = document.getElementById('dot_'  + id);
+              if (card) card.classList.add('excluded');
+              if (pill) { pill.classList.add('excluded'); pill.querySelector('.pill-label').textContent = 'HIDDEN'; }
+              if (dot)  dot.style.background = 'var(--muted)';
+              ['0','6','60','120'].forEach(function(m) {
+                const el = document.getElementById('ic_' + m + '_' + id);
+                if (el) el.classList.add('excluded-val');
+              });
+            });
+            recalcAll();
+          }
+        }
       } catch(e) {}
     }
   }, 15000); // refresh every 15 seconds
