@@ -573,6 +573,16 @@
   }
 
   /* ── Summary ── */
+  .summary-desc-group {
+    margin-bottom: 24px;
+  }
+
+  .summary-desc-group textarea {
+    width: 100%;
+    min-height: 72px;
+    font-size: 13px;
+  }
+
   .summary-section {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -867,7 +877,10 @@
   </div>
 
   <div class="summary-section" style="margin-bottom:40px;">
-    <h2>Impact Summary</h2>
+    <h2>Opportunities to Build Reserves</h2>
+    <div class="summary-desc-group">
+      <textarea id="summaryDesc" placeholder="Add context or notes about these opportunities..." readonly></textarea>
+    </div>
     <div class="timeline-grid" id="timelineGrid"></div>
     <div class="chart-area">
       <div class="chart-title">Cumulative Reserve Growth by Opportunity (10 Years)</div>
@@ -879,6 +892,10 @@
   <div class="section-heading">
     <h2>Financial Opportunities</h2>
     <button class="add-btn" id="addBtn" onclick="addOpportunity()" disabled>+ Add Opportunity</button>
+  </div>
+
+  <div class="summary-desc-group" style="margin-bottom:24px;">
+    <textarea id="oppsDesc" placeholder="Add context or notes about these financial opportunities..." readonly></textarea>
   </div>
 
   <div class="opportunities" id="opportunitiesList"></div>
@@ -1226,6 +1243,8 @@ async function doSave() {
   const state = {
     currentReserves: document.getElementById('currentReserves').value,
     reservesDesc:    (document.getElementById('reservesDesc') || {}).value || '',
+    summaryDesc:     (document.getElementById('summaryDesc') || {}).value || '',
+    oppsDesc:        (document.getElementById('oppsDesc') || {}).value || '',
     opportunities:   opportunities,
     nextId:          nextId,
   };
@@ -1265,6 +1284,14 @@ function applyState(state) {
     const el = document.getElementById('reservesDesc');
     if (el) el.value = state.reservesDesc;
   }
+  if (state.summaryDesc !== undefined) {
+    const el = document.getElementById('summaryDesc');
+    if (el) el.value = state.summaryDesc;
+  }
+  if (state.oppsDesc !== undefined) {
+    const el = document.getElementById('oppsDesc');
+    if (el) el.value = state.oppsDesc;
+  }
   if (Array.isArray(state.opportunities)) {
     opportunities = state.opportunities;
     nextId        = state.nextId || (opportunities.length + 1);
@@ -1282,12 +1309,18 @@ function setEditorMode(on) {
   document.getElementById('currentReserves').readOnly = !on;
   const rdEl = document.getElementById('reservesDesc');
   if (rdEl) rdEl.readOnly = !on;
+  const sdEl = document.getElementById('summaryDesc');
+  if (sdEl) sdEl.readOnly = !on;
+  const odEl = document.getElementById('oppsDesc');
+  if (odEl) odEl.readOnly = !on;
   document.getElementById('readonlyNotice').style.display = on ? 'none' : 'block';
   renderOpportunities();
   if (on) {
     document.getElementById('currentReserves').addEventListener('input',  function() { recalcAll(); scheduleSave(); });
     document.getElementById('currentReserves').addEventListener('change', function() { recalcAll(); scheduleSave(); });
     document.getElementById('reservesDesc').addEventListener('input', function() { scheduleSave(); });
+    document.getElementById('summaryDesc').addEventListener('input', function() { scheduleSave(); });
+    document.getElementById('oppsDesc').addEventListener('input', function() { scheduleSave(); });
   }
 }
 
