@@ -1012,7 +1012,7 @@ function recalcAll() {
   const base    = getBase();
   const periods = [
     { label: 'TODAY', months: 0   },
-    { label: '6 MO',  months: 6   },
+    { label: '1 YR',  months: 12  },
     { label: '5 YR',  months: 60  },
     { label: '10 YR', months: 120 },
   ];
@@ -1175,7 +1175,7 @@ function renderOpportunities() {
         '</div>' +
         '<div class="impact-row">' +
           mkImpact('Today',    0,   opp.id, isExcluded) +
-          mkImpact('6 Months', 6,   opp.id, isExcluded) +
+          mkImpact('1 Year', 12,   opp.id, isExcluded) +
           mkImpact('5 Years',  60,  opp.id, isExcluded) +
           mkImpact('10 Years', 120, opp.id, isExcluded) +
         '</div>' +
