@@ -758,8 +758,8 @@
   .bar-value {
     font-family: 'DM Mono', monospace;
     font-size: 12px;
-    white-space: nowrap;
     padding-left: 10px;
+    line-height: 1.4;
   }
 
   .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
@@ -1128,12 +1128,13 @@ function recalcAll() {
   vals.forEach(function(item) {
     var lw = _ctx.measureText(item.opp.name).width;
     if (lw > maxLabelW) maxLabelW = lw;
+    // Only measure the dollar amount — status tags now render on a new line
     var vw = _ctx.measureText(fmt(item.val)).width;
     if (vw > maxValueW) maxValueW = vw;
   });
   // Add padding and convert to px strings
   var labelColW = Math.ceil(maxLabelW) + 16 + 'px';
-  var valueColW = Math.ceil(maxValueW) + 20 + 'px';
+  var valueColW = Math.ceil(maxValueW) + 24 + 'px';
 
   vals.forEach(function(item) {
     const opp       = item.opp, val = item.val;
@@ -1162,7 +1163,10 @@ function recalcAll() {
       '<div class="bar-track-right">' +
         '<div class="bar-fill-right" style="width:' + (isNeg ? 0 : pct) + '%;background:' + barColor + ';opacity:' + barOp + '"></div>' +
       '</div>' +
-      '<div class="bar-value" style="color:' + (isActive ? (isNeg ? 'var(--danger)' : '#2e7d5e') : 'var(--muted)') + '">' + fmt(val) + (!opp.included ? ' <span style="font-size:10px;color:var(--muted)">(excluded)</span>' : isHidden ? ' <span style="font-size:10px;color:var(--muted)">(hidden)</span>' : '') + '</div>';
+      '<div class="bar-value" style="color:' + (isActive ? (isNeg ? 'var(--danger)' : '#2e7d5e') : 'var(--muted)') + '">' + fmt(val) +
+        (!opp.included ? '<br><span style="font-size:10px;color:var(--muted);font-style:italic">(excluded)</span>' :
+          isHidden ? '<br><span style="font-size:10px;color:var(--muted);font-style:italic">(hidden)</span>' : '') +
+      '</div>';
     barChart.appendChild(row);
 
     const li      = document.createElement('div');
