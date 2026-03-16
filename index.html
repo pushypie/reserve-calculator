@@ -603,7 +603,7 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 32px;
+    padding: 32px 40px 32px 32px;
   }
 
   .summary-section h2 {
@@ -624,7 +624,7 @@
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 20px 16px;
-    text-align: center;
+    text-align: left;
     transition: transform 0.2s;
   }
 
@@ -637,6 +637,7 @@
     text-transform: uppercase;
     color: var(--muted);
     margin-bottom: 10px;
+    text-align: center;
   }
 
   .tc-total {
@@ -644,6 +645,7 @@
     font-size: 22px;
     font-weight: 500;
     margin-bottom: 6px;
+    text-align: center;
   }
 
   .tc-baseline {
@@ -659,7 +661,28 @@
     color: var(--accent);
   }
 
-  .chart-area { margin-top: 8px; }
+  .tc-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 10px 0;
+  }
+
+  .tc-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+
+  .tc-line-label { color: var(--muted); }
+  .tc-line-value { font-weight: 500; }
+  .tc-line-value.positive { color: var(--accent); }
+  .tc-line-value.negative { color: var(--danger); }
+  .tc-line-value.neutral  { color: var(--text); }
+
+  .chart-area { margin-top: 8px; overflow: hidden; }
 
   .chart-title {
     font-family: 'DM Mono', monospace;
@@ -670,13 +693,16 @@
     margin-bottom: 16px;
   }
 
-  .bar-group { display: flex; flex-direction: column; gap: 10px; }
+  .bar-group { display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; }
 
   .bar-row {
     display: grid;
     grid-template-columns: var(--label-width, 120px) var(--left-pct, 1fr) 2px var(--right-pct, 1fr) var(--value-width, 100px);
     align-items: center;
     gap: 0;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .bar-label {
@@ -1027,17 +1053,45 @@ function recalcAll() {
   const grid = document.getElementById('timelineGrid');
   grid.innerHTML = '';
   periods.forEach(function(p) {
-    const gained    = opportunities.reduce(function(sum, opp) {
-      return sum + (opp.included && !hiddenIds.has(opp.id) ? calcOpp(opp, p.months) : 0);
+    const activeOpps = opportunities.filter(function(opp) {
+      return opp.included && !hiddenIds.has(opp.id);
+    });
+
+    // Total revenue: upfront infusions + monthly income over period
+    const totalRevenue = activeOpps.reduce(function(sum, opp) {
+      const upfront      = getVal(opp.id, 'upfront');
+      const monthlyIncome = getVal(opp.id, 'monthlyIncome');
+      return sum + upfront + (monthlyIncome * p.months);
     }, 0);
+
+    // Total expenses: one-time costs + monthly expenses over period
+    const totalExpenses = activeOpps.reduce(function(sum, opp) {
+      const oneTimeExpense  = getVal(opp.id, 'oneTimeExpense');
+      const monthlyExpense  = getVal(opp.id, 'monthlyExpense');
+      return sum + oneTimeExpense + (monthlyExpense * p.months);
+    }, 0);
+
+    const gained    = totalRevenue - totalExpenses;
     const projected = base + gained;
     const card      = document.createElement('div');
     card.className  = 'timeline-card';
     card.innerHTML  =
-      '<div class="tc-period">'   + p.label + '</div>' +
+      '<div class="tc-period">' + p.label + '</div>' +
       '<div class="tc-total" style="color:' + (projected >= base ? 'var(--accent)' : 'var(--danger)') + '">' + fmt(projected) + '</div>' +
-      '<div class="tc-baseline">base: ' + fmt(base) + '</div>' +
-      '<div class="tc-delta">+'   + fmt(gained) + ' added</div>';
+      '<hr class="tc-divider">' +
+      '<div class="tc-line">' +
+        '<span class="tc-line-label">Base</span>' +
+        '<span class="tc-line-value neutral">' + fmt(base) + '</span>' +
+      '</div>' +
+      '<div class="tc-line">' +
+        '<span class="tc-line-label">Revenue</span>' +
+        '<span class="tc-line-value positive">+' + fmt(totalRevenue) + '</span>' +
+      '</div>' +
+      (totalExpenses > 0 ?
+      '<div class="tc-line">' +
+        '<span class="tc-line-label">Expenses</span>' +
+        '<span class="tc-line-value negative">-' + fmt(totalExpenses) + '</span>' +
+      '</div>' : '');
     grid.appendChild(card);
   });
 
