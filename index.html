@@ -7,15 +7,15 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0f1117;
-    --surface: #171b26;
-    --surface2: #1e2333;
-    --border: #2a3045;
-    --accent: #4ade80;
-    --accent3: #f59e0b;
-    --danger: #f87171;
-    --text: #e8eaf0;
-    --muted: #6b7a99;
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0ede8;
+    --border: #ddd9d2;
+    --accent: #2e7d5e;
+    --accent3: #c47a1e;
+    --danger: #c0392b;
+    --text: #2c2c2c;
+    --muted: #7a7068;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -32,8 +32,8 @@
     position: fixed;
     inset: 0;
     background-image:
-      linear-gradient(rgba(74,222,128,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(74,222,128,0.03) 1px, transparent 1px);
+      linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
     background-size: 40px 40px;
     pointer-events: none;
     z-index: 0;
@@ -74,7 +74,7 @@
   .mode-badge.editor-mode {
     border-color: var(--accent);
     color: var(--accent);
-    background: rgba(74,222,128,0.08);
+    background: rgba(46,125,94,0.08);
   }
 
   .mode-btn {
@@ -91,14 +91,14 @@
     transition: all 0.2s;
   }
 
-  .mode-btn:hover { color: var(--text); border-color: #3a4560; }
+  .mode-btn:hover { color: var(--text); border-color: #aaa49c; }
 
   /* ── Password modal ── */
   .modal-overlay {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.7);
+    background: rgba(0,0,0,0.35);
     z-index: 100;
     align-items: center;
     justify-content: center;
@@ -157,7 +157,7 @@
   .modal-submit {
     flex: 1;
     background: var(--accent);
-    color: #0a1a0f;
+    color: #ffffff;
     border: none;
     border-radius: 8px;
     padding: 10px;
@@ -200,14 +200,14 @@
 
   /* ── Viewer readonly notice ── */
   .readonly-notice {
-    background: rgba(96,165,250,0.07);
-    border: 1px solid rgba(96,165,250,0.25);
+    background: rgba(46,125,94,0.06);
+    border: 1px solid rgba(46,125,94,0.2);
     border-radius: 10px;
     padding: 10px 16px;
     margin-bottom: 28px;
     font-family: 'DM Mono', monospace;
     font-size: 11px;
-    color: #60a5fa;
+    color: var(--accent);
     letter-spacing: 0.05em;
     display: none;
   }
@@ -358,7 +358,7 @@
 
   .add-btn {
     background: var(--accent);
-    color: #0a1a0f;
+    color: #ffffff;
     border: none;
     border-radius: 8px;
     padding: 10px 20px;
@@ -389,9 +389,25 @@
     transition: border-color 0.2s, opacity 0.25s;
   }
 
-  .opp-card:hover { border-color: #3a4560; }
+  .opp-card:hover { border-color: #aaa49c; }
   .opp-card.excluded { opacity: 0.45; }
   .opp-card.excluded .opp-color-dot { background: var(--muted) !important; }
+  .opp-card.drag-over { border-color: var(--accent); border-style: dashed; }
+  .opp-card.dragging  { opacity: 0.4; }
+
+  .drag-handle {
+    cursor: grab;
+    color: var(--muted);
+    font-size: 14px;
+    padding: 4px 6px;
+    flex-shrink: 0;
+    display: none;
+    line-height: 1;
+    letter-spacing: -1px;
+  }
+
+  .drag-handle:active { cursor: grabbing; }
+  .editor-active .drag-handle { display: block; }
 
   .opp-header {
     display: flex;
@@ -432,7 +448,7 @@
     padding: 5px 12px;
     border-radius: 20px;
     border: 1px solid var(--accent);
-    background: rgba(74,222,128,0.08);
+    background: rgba(46,125,94,0.08);
     cursor: pointer;
     font-family: 'DM Mono', monospace;
     font-size: 11px;
@@ -524,7 +540,7 @@
 
   .field-group .hint {
     font-size: 11px;
-    color: #4a5568;
+    color: var(--muted);
     margin-top: 4px;
     font-family: 'DM Mono', monospace;
   }
@@ -658,7 +674,7 @@
 
   .bar-row {
     display: grid;
-    grid-template-columns: 110px var(--left-pct, 1fr) 2px var(--right-pct, 1fr) 90px;
+    grid-template-columns: var(--label-width, 120px) var(--left-pct, 1fr) 2px var(--right-pct, 1fr) var(--value-width, 100px);
     align-items: center;
     gap: 0;
   }
@@ -669,6 +685,7 @@
     text-align: right;
     font-family: 'DM Mono', monospace;
     padding-right: 10px;
+    white-space: nowrap;
   }
 
   /* left side (negative values) */
@@ -715,8 +732,7 @@
   .bar-value {
     font-family: 'DM Mono', monospace;
     font-size: 12px;
-    width: 90px;
-    flex-shrink: 0;
+    white-space: nowrap;
     padding-left: 10px;
   }
 
@@ -775,6 +791,7 @@
     line-height: 1;
     margin-bottom: 12px;
     transition: color 0.3s;
+    text-shadow: none;
   }
 
   .pf-sub {
@@ -788,7 +805,7 @@
     display: flex;
     position: fixed;
     inset: 0;
-    background: var(--bg);
+    background: #f5f4f0;
     z-index: 200;
     align-items: center;
     justify-content: center;
@@ -885,7 +902,7 @@
     <div class="chart-area">
       <div class="chart-title">Cumulative Reserve Growth by Opportunity (10 Years)</div>
       <div class="bar-group" id="barChart"></div>
-      <div class="legend" id="legend"></div>
+      <div class="legend" id="legend" style="display:none"></div>
     </div>
   </div>
 
@@ -915,7 +932,7 @@ const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const EDITOR_PASS   = '3840Gr3yst0n3$';
 const TABLE         = 'calculator_state';
 const ROW_ID        = 1;
-const COLORS        = ['#4ade80','#60a5fa','#f59e0b','#f472b6','#a78bfa','#34d399','#fb923c','#e879f9'];
+const COLORS        = ['#2e7d5e','#3b7fc4','#c47a1e','#b85c8a','#7c5cbf','#2a9d7a','#c4622d','#7a4fa8'];
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let opportunities = [];
@@ -1048,12 +1065,29 @@ function recalcAll() {
   const leftFr  = Math.max(maxNeg / total, 0.05).toFixed(4);
   const rightFr = (1 - parseFloat(leftFr)).toFixed(4);
 
+  // Measure label and value widths using a canvas so all rows share the same column widths
+  var _canvas = document.createElement('canvas');
+  var _ctx = _canvas.getContext('2d');
+  _ctx.font = '12px DM Mono, monospace';
+  var maxLabelW = 0;
+  var maxValueW = 0;
+  vals.forEach(function(item) {
+    var lw = _ctx.measureText(item.opp.name).width;
+    if (lw > maxLabelW) maxLabelW = lw;
+    var vw = _ctx.measureText(fmt(item.val)).width;
+    if (vw > maxValueW) maxValueW = vw;
+  });
+  // Add padding and convert to px strings
+  var labelColW = Math.ceil(maxLabelW) + 16 + 'px';
+  var valueColW = Math.ceil(maxValueW) + 20 + 'px';
+
   vals.forEach(function(item) {
     const opp       = item.opp, val = item.val;
-    const shortName = opp.name.length > 16 ? opp.name.slice(0,16) + '…' : opp.name;
+    const shortName = opp.name;
     const isHidden  = hiddenIds.has(opp.id);
-    const barColor  = (opp.included && !isHidden) ? opp.color : 'var(--muted)';
-    const barOp     = (opp.included && !isHidden) ? 1 : 0.3;
+    const isActive  = opp.included && !isHidden;
+    const barColor  = isActive ? '#2e7d5e' : 'var(--muted)';
+    const barOp     = isActive ? 1 : 0.3;
     const isNeg     = val < 0;
     // pct is relative to each side's own max, so bars always fill proportionally
     const pct       = isNeg
@@ -1061,6 +1095,8 @@ function recalcAll() {
       : Math.min(100, (val / maxPos) * 100);
     const row       = document.createElement('div');
     row.className   = 'bar-row';
+    row.style.setProperty('--label-width', labelColW);
+    row.style.setProperty('--value-width', valueColW);
     row.style.setProperty('--left-pct',  leftFr  + 'fr');
     row.style.setProperty('--right-pct', rightFr + 'fr');
     row.innerHTML   =
@@ -1072,7 +1108,7 @@ function recalcAll() {
       '<div class="bar-track-right">' +
         '<div class="bar-fill-right" style="width:' + (isNeg ? 0 : pct) + '%;background:' + barColor + ';opacity:' + barOp + '"></div>' +
       '</div>' +
-      '<div class="bar-value" style="color:' + ((opp.included && !isHidden) ? (isNeg ? 'var(--danger)' : barColor) : 'var(--muted)') + '">' + fmt(val) + (!opp.included ? ' <span style="font-size:10px;color:var(--muted)">(excluded)</span>' : isHidden ? ' <span style="font-size:10px;color:var(--muted)">(hidden)</span>' : '') + '</div>';
+      '<div class="bar-value" style="color:' + (isActive ? (isNeg ? 'var(--danger)' : '#2e7d5e') : 'var(--muted)') + '">' + fmt(val) + (!opp.included ? ' <span style="font-size:10px;color:var(--muted)">(excluded)</span>' : isHidden ? ' <span style="font-size:10px;color:var(--muted)">(hidden)</span>' : '') + '</div>';
     barChart.appendChild(row);
 
     const li      = document.createElement('div');
@@ -1102,9 +1138,18 @@ function renderOpportunities() {
     const card       = document.createElement('div');
     card.className   = 'opp-card' + (isExcluded ? ' excluded' : '');
     card.id          = 'card_' + opp.id;
+    if (isEditor) {
+      card.draggable = true;
+      card.addEventListener('dragstart', onDragStart);
+      card.addEventListener('dragover',  onDragOver);
+      card.addEventListener('dragleave', onDragLeave);
+      card.addEventListener('drop',      onDrop);
+      card.addEventListener('dragend',   onDragEnd);
+    }
 
     card.innerHTML =
       '<div class="opp-header">' +
+        '<div class="drag-handle" title="Drag to reorder">⠿</div>' +
         '<div class="opp-color-dot" id="dot_' + opp.id + '" style="background:' + (isExcluded ? 'var(--muted)' : opp.color) + '"></div>' +
         '<input class="opp-name-input" id="name_' + opp.id + '" value="' + escapeAttr(opp.name) + '" placeholder="Opportunity name"' +
           (ro ? ' readonly' : ' oninput="opportunities.find(function(o){return o.id==' + opp.id + ';}).name=this.value; recalcAll(); scheduleSave();" onclick="event.stopPropagation()"') + '>' +
@@ -1182,6 +1227,52 @@ function removeOpportunity(id) {
   opportunities = opportunities.filter(function(o) { return o.id !== id; });
   renderOpportunities();
   scheduleSave();
+}
+
+// ── Drag-and-drop reordering ──────────────────────────────────────────────────
+var dragSrcId = null;
+
+function onDragStart(e) {
+  dragSrcId = parseInt(this.id.replace('card_', ''));
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  this.classList.add('drag-over');
+}
+
+function onDragLeave(e) {
+  this.classList.remove('drag-over');
+}
+
+function onDrop(e) {
+  e.preventDefault();
+  this.classList.remove('drag-over');
+  var targetId = parseInt(this.id.replace('card_', ''));
+  if (dragSrcId === null || dragSrcId === targetId) return;
+
+  // Reorder the opportunities array
+  var srcIdx = opportunities.findIndex(function(o) { return o.id === dragSrcId; });
+  var tgtIdx = opportunities.findIndex(function(o) { return o.id === targetId; });
+  if (srcIdx === -1 || tgtIdx === -1) return;
+
+  var moved = opportunities.splice(srcIdx, 1)[0];
+  opportunities.splice(tgtIdx, 0, moved);
+
+  renderOpportunities();
+  scheduleSave();
+}
+
+function onDragEnd(e) {
+  this.classList.remove('dragging');
+  // Clean up any leftover drag-over highlights
+  document.querySelectorAll('.opp-card').forEach(function(c) {
+    c.classList.remove('drag-over');
+  });
+  dragSrcId = null;
 }
 
 function toggleHide(id) {
@@ -1341,6 +1432,7 @@ function applyState(state) {
 // ── Mode switching ────────────────────────────────────────────────────────────
 function setEditorMode(on) {
   isEditor = on;
+  document.getElementById('opportunitiesList').classList.toggle('editor-active', on);
   document.getElementById('modeBadge').textContent    = on ? 'Editor' : 'Viewer';
   document.getElementById('modeBadge').className      = 'mode-badge' + (on ? ' editor-mode' : '');
   document.getElementById('modeBtn').textContent      = on ? 'Lock' : 'Edit';
